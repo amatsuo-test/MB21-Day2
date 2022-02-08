@@ -135,6 +135,19 @@ presidential votes
 ```{r}
 
 ```
+## Monthy-by-month correlations between Trump Vote and caccination takeup.
+
+- Let's calculate the monthly update of correlation between county level vaccination and Trump vote.
+- How to address it?
+  1. Filter first date of month vaccination data
+  2. Merge with presidential vote
+  3. Group data, calculate correnation each month
+  4. Plot?
+
+
+```{r}
+
+```
 
 ## Create a database
 
