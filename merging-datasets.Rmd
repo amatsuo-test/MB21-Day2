@@ -1,7 +1,7 @@
 ---
 title: "Merging the datasets with tidyverse"
 author: ""
-date: "02/08/2022"
+date: "07/02/2022"
 output: html_document
 ---
 
@@ -36,9 +36,11 @@ The task is
 
 
 #### Download the file
-The vaccination data is here: https://www.dropbox.com/s/5jy18d1thntcc5t/COVID-19_Vaccinations_in_the_United_States_County.csv.tar.gz?dl=1
+The vaccination data is here: https://www.dropbox.com/s/3bqwbxw6mr9t9jv/COVID-19_Vaccinations_in_the_United_States_County.csv.tar.gz?dl=1
 
 ```{r}
+dir.create("tmp")
+download.file("https://www.dropbox.com/s/3bqwbxw6mr9t9jv/COVID-19_Vaccinations_in_the_United_States_County.csv.tar.gz?dl=1", destfile = "tmp/COVID-19_Vaccinations_in_the_United_States_County.csv.tar.gz")
 
 ```
 
