@@ -30,9 +30,21 @@ db <- dbConnect(RSQLite::SQLite(), "~/covid.sqlite")
   - Run SQL queries there
 
 ```{r}
-
+dbGetQuery(db, "SELECT * FROM sqlite_master WHERE type='table';")
 ```
 
+
+```{r}
+dbGetQuery(db, "SELECT * FROM demo LIMIT 5")
+```
+
+
+```{r}
+dbGetQuery(db, "SELECT * FROM vac LIMIT 5")
+```
+```{r}
+dbGetQuery(db, "SELECT * FROM trump LIMIT 5")
+```
 
 ### Bit more complex queries
 
@@ -40,6 +52,12 @@ db <- dbConnect(RSQLite::SQLite(), "~/covid.sqlite")
 2. Get the data on 1 Aug, 2021, and select county with less than 10 pct vaccination
 
 ```{r}
+dbGetQuery(db, "SELECT Date, COUNT() FROM vac GROUP BY Date") %>%
+  arrange(desc(Date))
+
+
+dbGetQuery(db, "SELECT * FROM vac WHERE Date = '2022-07-27'") 
+dbGetQuery(db, "SELECT * FROM vac WHERE Date = '2021-08-01' AND Series_Complete_Pop_Pct > 10") 
 
 ```
 #### Ordering and aggregation
@@ -49,6 +67,8 @@ db <- dbConnect(RSQLite::SQLite(), "~/covid.sqlite")
 
 
 ```{r}
+dbGetQuery(db, "SELECT * FROM vac WHERE Date = '2021-08-14' ORDER BY Series_Complete_Pop_Pct DESC") 
+dbGetQuery(db, "SELECT Recip_State, SUM(Series_Complete_Yes) FROM vac WHERE Date = '2021-08-14' GROUP BY Recip_State") 
 
 ```
 
@@ -56,20 +76,24 @@ db <- dbConnect(RSQLite::SQLite(), "~/covid.sqlite")
 ### Merging tables
 
 - merge vaccine and demo table by fips
-- (advanced) calculate per 1000 cases and deaths
 
 ```{r}
+dbGetQuery(db, "SELECT vac.*, demo.TotalPop FROM vac 
+            INNER JOIN demo ON vac.FIPS = demo.FIPS WHERE Date = '2021-08-14' ")
 
 ```
 
-## dblyr
+## dbplyr
 
 Now we will use `dbplyr`
 
 ### Get the object for each table
 
 ```{r}
-
+tb_demo <- tbl(db, "demo")
+tb_trump <- tbl(db, "trump")
+tb_vac <- tbl(db, "vac")
+  
 ```
 
 
@@ -83,7 +107,7 @@ Now we will use `dbplyr`
   - Run SQL queries there
 
 ```{r}
-
+tb_demo %>% head(10) #%>% show_query()
 ```
 
 
@@ -94,6 +118,19 @@ Now we will use `dbplyr`
 
 ```{r}
 
+tb_vac %>% 
+  count(Date) %>%
+  arrange(desc(Date))
+
+
+tb_vac %>%
+  filter(Date == "2022-07-27") #%>% show_query()
+
+
+tb_vac %>%
+  filter(Date == "2021-08-14") %>% 
+  filter(Series_Complete_Pop_Pct > 10) #
+
 ```
 #### Ordering and aggregation
 
@@ -102,7 +139,18 @@ Now we will use `dbplyr`
 
 
 ```{r}
+dbGetQuery(db, "SELECT * FROM vac WHERE Date = '2021-08-14' ORDER BY Series_Complete_Pop_Pct DESC") 
+dbGetQuery(db, "SELECT Recip_State, SUM(Series_Complete_Yes) FROM vac WHERE Date = '2021-08-14' GROUP BY Recip_State") 
 
+tb_vac  %>%
+  filter(Date == "2021-08-14") %>% 
+  arrange(desc(Series_Complete_Pop_Pct)) %>%
+  head()
+
+tb_vac %>%
+  filter(Date == "2021-08-14") %>%
+  group_by(Recip_State) %>%
+  summarise(sum(Series_Complete_Yes)) #%>% show_query()
 ```
 
 
@@ -115,4 +163,37 @@ Now we will use `dbplyr`
 
 ```{r}
 
+tb_vac %>%
+  inner_join(tb_demo, by = "FIPS")
+
 ```
+
+
+```{r}
+tmp <- tb_vac %>%
+  filter(Date == "2021-08-14") %>%
+  group_by(Recip_State) %>%
+  summarise(sum(Series_Complete_Yes)) #%>% show_query()
+```
+
+
+```{r}
+tmp %>% class()
+```
+
+```{r}
+df_tmp <- tb_vac %>%
+  filter(Date == "2021-08-14") %>%
+  group_by(Recip_State) %>%
+  summarise(sum(Series_Complete_Yes)) %>% as_tibble()
+
+df_tmp2 <- tb_vac %>%
+  filter(Date == "2021-08-14") %>%
+  group_by(Recip_State) %>%
+  summarise(sum(Series_Complete_Yes)) %>% collect()
+
+df_tmp2 
+
+```
+
+

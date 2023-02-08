@@ -53,9 +53,9 @@ library(tidyverse)
 ## Read three data files
 
 ```{r}
-data_vac <- read_csv("tmp/COVID-19_Vaccinations_in_the_United_States_County.csv.tar.gz")
-data_demo <- read_csv("data/acs2017_county_data.csv")
-data_pres <- read_csv("data/pres20results.csv")
+df_vac <- vroom::vroom("tmp/COVID-19_Vaccinations_in_the_United_States_County.csv.tar.gz")
+df_demo <- read_csv("data/acs2017_county_data.csv")
+df_pres <- read_csv("data/pres20results.csv")
 ```
 
 
@@ -65,6 +65,36 @@ data_pres <- read_csv("data/pres20results.csv")
 
 
 ```{r}
+library(magrittr)
+df_vac %>% head()
+df_vac %>% dim()
+
+#df_vac %<>%
+#df_vac <- df_vac %>%
+  
+df_vac %<>%
+  mutate(Date = Date %>% as.Date(format = "%m/%d/%Y"))
+df_vac %<>%
+  mutate(FIPS = FIPS %>% as.integer) %>%
+  filter(!is.na(FIPS))
+
+
+
+```
+
+
+```{r}
+df_demo %>% head()
+df_demo %<>%
+  rename(FIPS = CountyId)
+df_demo 
+```
+
+
+```{r}
+df_pres %>% head()
+df_pres %<>% 
+  rename(FIPS = fips)
 
 ```
 - renaming is necessary for `data_demo`
@@ -73,6 +103,10 @@ data_pres <- read_csv("data/pres20results.csv")
 
 ```{r}
 
+df_pres %<>%
+  filter(candidate == "Donald Trump") %>%
+  mutate(vote_pct  = votes/total_votes)
+df_pres
 ```
 
 
@@ -90,6 +124,14 @@ data_pres <- read_csv("data/pres20results.csv")
 - Do they match? (if not does this seem problematic)?
     
 ```{r}
+df_vac_counties <- df_vac %>% count(FIPS, Recip_County, Recip_State)
+
+df_vac_counties %>%
+  anti_join(df_demo, by = 'FIPS')
+
+
+df_vac_counties %>%
+  anti_join(df_pres, by = 'FIPS')
 
 ```
 
@@ -101,6 +143,11 @@ data_pres <- read_csv("data/pres20results.csv")
 
 ```{r}
 
+df_vac_latest <- df_vac %>%
+  group_by(FIPS) %>%
+  filter(Date == max(Date)) %>%
+  ungroup() 
+
 ```
 
 
@@ -110,7 +157,7 @@ presidential votes
   - Keep only trump vote rows
 
 ```{r}
-
+# already done
 ```
 
 ## Merge the datasets
@@ -124,6 +171,9 @@ presidential votes
   3. presidential votes
   
 ```{r}
+df_merged <- df_vac_latest %>%
+  inner_join(df_pres, by = "FIPS") %>%
+  inner_join(df_demo, by = "FIPS") 
 
 ```
 
@@ -135,9 +185,17 @@ presidential votes
 - `GGally::ggpairs()`, correlation plot (I showed in day 4 lecture)
 
 ```{r}
+df_merged %>%
+  select(Series_Complete_Pop_Pct, Booster_Doses_18Plus_Vax_Pct,
+         vote_pct, Hispanic, Black, IncomePerCap, Unemployment) %>% 
+  cor(use = "complete.obs")
+df_merged %>%
+  select(Series_Complete_Pop_Pct,
+         vote_pct, Hispanic, Black, IncomePerCap, Unemployment) %>% 
+  pairs()
 
 ```
-## Monthy-by-month correlations between Trump Vote and caccination takeup.
+## Month-by-month correlations between Trump Vote and caccination takeup.
 
 - Let's calculate the monthly update of correlation between county level vaccination and Trump vote.
 - How to address it?
@@ -148,6 +206,13 @@ presidential votes
 
 
 ```{r}
+df_vac %>%
+  mutate(Date = as.Date(Date)) %>%
+  filter(lubridate::day(Date) == 1) %>%
+  inner_join(df_pres, by = "FIPS") %>%
+  group_by(Date) %>%
+  summarize(cor_vote_vac = cor(vote_pct, Series_Complete_Pop_Pct, use = "pairwise.complete.obs")) %>%
+  ggplot(aes(x = Date, y = cor_vote_vac)) + geom_line()
 
 ```
 
@@ -168,7 +233,7 @@ What we need to do is:
 - Convert dates to character
 
 ```{r}
-
+df_vac %>% distinct() %>% dim()
 ```
 
 
@@ -184,6 +249,13 @@ db <- dbConnect(RSQLite::SQLite(), "~/covid.sqlite")
 ### Create/populate tables
 
 ```{r}
+df_demo <- df_demo %>% select(-c(State, County))
+df_pres <- df_pres %>% select(-c(party, state, candidate, county))
+df_vac <- df_vac %>% mutate(Date = as.character(Date))
+
+dbWriteTable(db, name = "demo", df_demo)
+dbWriteTable(db, name = "trump", df_pres)
+dbWriteTable(db, name = "vac", df_vac)
 
 ```
 
